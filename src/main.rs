@@ -1,5 +1,6 @@
 use pulldown_cmark::{html, Event, Parser};
-use std::fs::read_to_string;
+use std::fs::{create_dir, read_to_string, remove_dir_all, File};
+use std::io::prelude::*;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
@@ -16,7 +17,7 @@ struct Opt {
     input: PathBuf,
 }
 
-fn main() {
+fn main() -> std::io::Result<()> {
     let options = Opt::from_args();
 
     // get content from options.input file
@@ -25,10 +26,18 @@ fn main() {
     let parser = Parser::new(&markdown_content).collect::<Vec<Event>>();
     let parsed_pages = parser.split(|event| *event == Event::Rule);
 
-    for page in parsed_pages.clone() {
+    // remove existing build directory
+    remove_dir_all("./build")?;
+    // create destination directory for pages
+    create_dir("./build")?;
+
+    for (index, page) in parsed_pages.enumerate() {
         let mut html_output = String::new();
         html::push_html(&mut html_output, page.to_vec().into_iter());
 
-        println!("{:#?}", html_output);
+        let mut file = File::create(format!("./build/{}.html", index))?;
+        file.write_all(&html_output.bytes().collect::<Vec<u8>>())?;
     }
+
+    Ok(())
 }
