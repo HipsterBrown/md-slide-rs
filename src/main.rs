@@ -1,7 +1,7 @@
 use pulldown_cmark::{html, Event, Parser};
 use std::fs::{create_dir, read_to_string, remove_dir_all, File};
 use std::io::prelude::*;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use structopt::StructOpt;
 use tera::{Context, Tera};
 use async_std::task;
@@ -48,11 +48,49 @@ static DEFAULT_SLIDE_TEMPLATE: &'static str = "<html lang=\"en\">
   </body>
 </html>";
 
-// async fn handle_path(ctx: tide::Request<StaticFile>) -> Result<(), std::io::Error> {
-//     let path = ctx.uri().path();
-//     println!("{:?}", path);
-//     Ok(())
-// }
+fn get_path(root: &Path, file_path: &str) -> PathBuf {
+    let relative_path = Path::new(file_path)
+        .components()
+        .fold(PathBuf::new(), |mut result, path| {
+            match path {
+                Component::Normal(x) => result.push({
+                    let s = x.to_str().unwrap_or("");
+                    &*percent_encoding::percent_decode(s.as_bytes()).decode_utf8_lossy()
+                }),
+                Component::ParentDir => {
+                    result.pop();
+                },
+                _ => (),
+            }
+            result
+        });
+    root.join(relative_path)
+}
+
+async fn serve_static_files(request: tide::Request<StaticFile>) -> tide::Result {
+    let actual_path: String = request.param("path").unwrap();
+    println!("{:?}", actual_path);
+    let state = request.state();
+    let response = task::block_on(async move {
+        let path = get_path(&state.root, &actual_path);
+        let meta = async_std::fs::metadata(&path).await.ok();
+
+        // If the file doesn't exist, then bail out.
+        if meta.is_none() {
+            return Ok(tide::Response::new(404)
+                .set_mime(mime::TEXT_HTML)
+                .body_string(format!("Couldn't locate requested file {:?}", actual_path)));
+        }
+
+        let meta = meta.unwrap();
+        let size = format!("{}", meta.len());
+        let mime = mime_guess::from_path(&path).first_or_octet_stream();
+        let file = async_std::fs::File::open(PathBuf::from(&path)).await.unwrap();
+        let reader = async_std::io::BufReader::new(file);
+        Ok(tide::Response::new(200).body(reader).set_header("Content-Length", size).set_mime(mime))
+    });
+    response
+}
 
 fn main() -> Result<(), std::io::Error> {
     let options = Opt::from_args();
@@ -65,11 +103,7 @@ fn main() -> Result<(), std::io::Error> {
             println!("Serving presenation slides");
             task::block_on(async {
                 let mut server = tide::with_state(StaticFile { root: root_dir });
-                server.at("/*path").get(|req: tide::Request<StaticFile>| async move {
-                    let path = req.uri().path();
-                    println!("file path: {}", path);
-                    format!("root directory: {:?}", &req.state().root)
-                });
+                server.at("/*path").get(|request| async { serve_static_files(request).await.unwrap() });
                 server.listen("0.0.0.0:8080").await?;
                 Ok(())
             })
@@ -82,7 +116,9 @@ fn main() -> Result<(), std::io::Error> {
             let parsed_pages = parser.split(|event| *event == Event::Rule);
 
             // remove existing build directory
-            remove_dir_all("./build")?;
+            if Path::new("./build").exists() {
+                remove_dir_all("./build")?;
+            }
             // create destination directory for pages
             create_dir("./build")?;
 

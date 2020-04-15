@@ -12,6 +12,9 @@ structopt = "0.3"
 pulldown-cmark = "0.7"
 tide = "0.6"
 async-std = "1"
+percent-encoding = "2.1"
+mime = "0.3"
+mime_guess = "2"
 
 [dependencies.tera]
 version = "1"
