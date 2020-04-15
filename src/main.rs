@@ -42,9 +42,21 @@ static DEFAULT_SLIDE_TEMPLATE: &'static str = "<html lang=\"en\">
     <meta charset=\"utf-8\" />
     <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
     <title>Slide {{ index }}</title>
+    <style>
+        html {
+            font-family: Helvetica, sans-serif;
+        }
+    </style>
   </head>
   <body>
     {{ content }}
+
+    {% if index > 0 %}
+        <a href=\"/{{ index - 1 }}.html\"><= Previous slide</a>
+    {% endif %}
+    {% if index < num_of_slides %}
+        <a href=\"/{{ index + 1 }}.html\">Next slide =></a>
+    {% endif %}
   </body>
 </html>";
 
@@ -69,7 +81,6 @@ fn get_path(root: &Path, file_path: &str) -> PathBuf {
 
 async fn serve_static_files(request: tide::Request<StaticFile>) -> tide::Result {
     let actual_path: String = request.param("path").unwrap();
-    println!("{:?}", actual_path);
     let state = request.state();
     let response = task::block_on(async move {
         let path = get_path(&state.root, &actual_path);
@@ -100,10 +111,11 @@ fn main() -> Result<(), std::io::Error> {
             let root_dir = match cmd {
                 Command::Serve { directory } => directory,
             };
-            println!("Serving presenation slides");
             task::block_on(async {
                 let mut server = tide::with_state(StaticFile { root: root_dir });
                 server.at("/*path").get(|request| async { serve_static_files(request).await.unwrap() });
+
+                println!("Serving presenation slides at 0.0.0.0:8080/0.html");
                 server.listen("0.0.0.0:8080").await?;
                 Ok(())
             })
@@ -127,6 +139,7 @@ fn main() -> Result<(), std::io::Error> {
             tera.add_raw_template("slide.html", DEFAULT_SLIDE_TEMPLATE)
                 .unwrap();
 
+            let (num_of_slides, _) = parsed_pages.size_hint();
             for (index, page) in parsed_pages.enumerate() {
                 let mut html_output = String::new();
                 html::push_html(&mut html_output, page.to_vec().into_iter());
@@ -134,6 +147,7 @@ fn main() -> Result<(), std::io::Error> {
                 let mut context = Context::new();
                 context.insert("index", &index);
                 context.insert("content", &html_output);
+                context.insert("num_of_slides", &num_of_slides);
 
                 let slide_html = tera.render("slide.html", &context).unwrap();
 
