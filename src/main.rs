@@ -45,18 +45,40 @@ static DEFAULT_SLIDE_TEMPLATE: &'static str = "<html lang=\"en\">
     <style>
         html {
             font-family: Helvetica, sans-serif;
+            height: 100%;
+        }
+        body {
+            padding: 3rem;
+            height: 100%;
+        }
+        nav {
+            bottom: 0;
+            display: flex;
+            justify-content: space-between;
+            left: 0;
+            padding: 0 2rem;
+            position: absolute;
+            width: 100%;
+        }
+        nav a {
+            flex: 1 1 auto;
+        }
+        .ta-right {
+            text-align: right;
         }
     </style>
   </head>
   <body>
     {{ content }}
 
-    {% if index > 0 %}
-        <a href=\"/{{ index - 1 }}.html\"><= Previous slide</a>
-    {% endif %}
-    {% if index < num_of_slides %}
-        <a href=\"/{{ index + 1 }}.html\">Next slide =></a>
-    {% endif %}
+    <nav>
+        {% if index > 0 %}
+            <a href=\"/{{ index - 1 }}.html\"><= Previous</a>
+        {% endif %}
+        {% if index < num_of_slides %}
+            <a class=\"ta-right\" href=\"/{{ index + 1 }}.html\">Next =></a>
+        {% endif %}
+    </nav>
   </body>
 </html>";
 
