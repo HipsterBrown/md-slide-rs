@@ -10,7 +10,7 @@ I enjoy writing my presentations in Markdown and wanted to be able generate the 
 
 ## TODO
 
-- [ ] finish initial default slide theme with styles
+- [X] finish initial default slide theme with styles
 - [ ] allow for keyboard navigation of slides with a bit of JS
 - [ ] reorganize CLI into `build`, `watch`, `serve` commands
 - [ ] testing (?) through GitHub Actions

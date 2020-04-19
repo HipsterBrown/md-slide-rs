@@ -45,14 +45,34 @@ static DEFAULT_SLIDE_TEMPLATE: &'static str = "<html lang=\"en\">
     <style>
         html {
             font-family: Helvetica, sans-serif;
+            font-size: 22px;
             height: 100%;
         }
         body {
-            padding: 3rem;
             height: 100%;
+            padding: 2rem;
+            position: relative;
+        }
+        h1 {
+            font-size: 4rem;
+        }
+        h2 {
+            font-size: 3rem;
+        }
+        h3 {
+            font-size: 2rem;
+        }
+        h4 {
+            font-size: 1rem;
+        }
+        h5 {
+            font-size: 0.75rem;
+        }
+        p, ul, ol {
+            font-size: 1.5rem;
         }
         nav {
-            bottom: 0;
+            bottom: 5vw;
             display: flex;
             justify-content: space-between;
             left: 0;
@@ -62,6 +82,26 @@ static DEFAULT_SLIDE_TEMPLATE: &'static str = "<html lang=\"en\">
         }
         nav a {
             flex: 1 1 auto;
+            text-decoration: none;
+        }
+        ul {
+            padding: 0 1rem;
+        }
+        ol {
+            padding: 0 1.5rem;
+        }
+        blockquote {
+            border-left: 4px solid black;
+            color: rgba(0, 0, 0, 0.6);
+            margin: 0;
+            padding-left: 1rem;
+        }
+        img {
+            display: block;
+            height: auto;
+            margin: 0 auto;
+            max-width: 600px;
+            width: 80vw;
         }
         .ta-right {
             text-align: right;
@@ -75,7 +115,7 @@ static DEFAULT_SLIDE_TEMPLATE: &'static str = "<html lang=\"en\">
         {% if index > 0 %}
             <a href=\"/{{ index - 1 }}.html\"><= Previous</a>
         {% endif %}
-        {% if index < num_of_slides %}
+        {% if index + 1 < num_of_slides %}
             <a class=\"ta-right\" href=\"/{{ index + 1 }}.html\">Next =></a>
         {% endif %}
     </nav>
@@ -161,7 +201,7 @@ fn main() -> Result<(), std::io::Error> {
             tera.add_raw_template("slide.html", DEFAULT_SLIDE_TEMPLATE)
                 .unwrap();
 
-            let (num_of_slides, _) = parsed_pages.size_hint();
+            let num_of_slides = parsed_pages.clone().count();
             for (index, page) in parsed_pages.enumerate() {
                 let mut html_output = String::new();
                 html::push_html(&mut html_output, page.to_vec().into_iter());

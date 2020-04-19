@@ -1,4 +1,4 @@
-# Hello World
+# Heading 1
 
 ## Heading 2
 
@@ -25,4 +25,10 @@ A regular paragraph of regular text to show how it looks.
 
 ---
 
-# The next slide
+![a crab example](https://images.unsplash.com/photo-1553659971-f01207815844?ixlib=rb-1.2.1&q=80&fm=jpg&crop=entropy&cs=tinysrgb&dl=mae-mu-rXDCb-Bmgdg-unsplash.jpg)
+
+an example image slide
+
+---
+
+# The last slide
