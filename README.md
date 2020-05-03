@@ -12,7 +12,8 @@ I enjoy writing my presentations in Markdown and wanted to be able generate the 
 
 - [X] finish initial default slide theme with styles
 - [ ] allow for keyboard navigation of slides with a bit of JS
-- [ ] reorganize CLI into `build`, `watch`, `serve` commands
+- [X] reorganize CLI into `build`, `serve` commands
+- [ ] add `watch` command
 - [ ] testing (?) through GitHub Actions
 - [ ] publish v0.1
 

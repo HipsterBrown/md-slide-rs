@@ -14,6 +14,12 @@ struct StaticFile {
 
 #[derive(StructOpt, Debug)]
 enum Command {
+    /// build slides from input
+    Build {
+        /// File to process
+        #[structopt(name = "FILE", parse(from_os_str))]
+        input: Option<PathBuf>,
+    },
     /// serve presentation
     Serve {
         #[structopt(default_value = "./build", parse(from_os_str))]
@@ -32,10 +38,6 @@ struct Opt {
     /// Serve generated slides
     #[structopt(subcommand)]
     command: Option<Command>,
-
-    /// File to process
-    #[structopt(name = "FILE", parse(from_os_str))]
-    input: Option<PathBuf>,
 }
 
 static DEFAULT_SLIDE_TEMPLATE: &'static str = "<html lang=\"en\">
@@ -170,54 +172,59 @@ fn main() -> Result<(), std::io::Error> {
 
     match options.command {
         Some(cmd) => {
-            let root_dir = match cmd {
-                Command::Serve { directory } => directory,
-            };
-            task::block_on(async {
-                let mut server = tide::with_state(StaticFile { root: root_dir });
-                server.at("/*path").get(|request| async { serve_static_files(request).await });
-                println!("Serving presenation slides at 0.0.0.0:8080/0.html");
-                server.listen("0.0.0.0:8080").await?;
-                Ok(())
-            })
+            match cmd {
+                Command::Serve { directory } => {
+                    task::block_on(async {
+                        let mut server = tide::with_state(StaticFile { root: directory });
+                        server.at("/*path").get(|request| async { serve_static_files(request).await });
+                        println!("Serving presenation slides at 0.0.0.0:8080/0.html");
+                        server.listen("0.0.0.0:8080").await?;
+                        Ok(())
+                    })
+                },
+                Command::Build { input } => {
+                    // get content from options.input file
+                    let markdown_content = read_to_string(input.unwrap()).unwrap();
+
+                    let parser = Parser::new(&markdown_content).collect::<Vec<Event>>();
+                    let parsed_pages = parser.split(|event| *event == Event::Rule);
+
+                    // remove existing build directory
+                    if Path::new("./build").exists() {
+                        remove_dir_all("./build")?;
+                    }
+                    // create destination directory for pages
+                    create_dir("./build")?;
+
+                    let mut tera = Tera::default();
+                    tera.autoescape_on(vec![]);
+                    tera.add_raw_template("slide.html", DEFAULT_SLIDE_TEMPLATE)
+                        .unwrap();
+
+                    let num_of_slides = parsed_pages.clone().count();
+                    for (index, page) in parsed_pages.enumerate() {
+                        let mut html_output = String::new();
+                        html::push_html(&mut html_output, page.to_vec().into_iter());
+
+                        let mut context = Context::new();
+                        context.insert("index", &index);
+                        context.insert("content", &html_output);
+                        context.insert("num_of_slides", &num_of_slides);
+
+                        let slide_html = tera.render("slide.html", &context).unwrap();
+
+                        let mut file = File::create(format!("./build/{}.html", index))?;
+                        file.write_all(&slide_html.bytes().collect::<Vec<u8>>())?;
+                    }
+
+                    println!("Slides created!");
+
+                    Ok(())
+                },
+            }
         }
         None => {
-            // get content from options.input file
-            let markdown_content = read_to_string(options.input.unwrap()).unwrap();
-
-            let parser = Parser::new(&markdown_content).collect::<Vec<Event>>();
-            let parsed_pages = parser.split(|event| *event == Event::Rule);
-
-            // remove existing build directory
-            if Path::new("./build").exists() {
-                remove_dir_all("./build")?;
-            }
-            // create destination directory for pages
-            create_dir("./build")?;
-
-            let mut tera = Tera::default();
-            tera.autoescape_on(vec![]);
-            tera.add_raw_template("slide.html", DEFAULT_SLIDE_TEMPLATE)
-                .unwrap();
-
-            let num_of_slides = parsed_pages.clone().count();
-            for (index, page) in parsed_pages.enumerate() {
-                let mut html_output = String::new();
-                html::push_html(&mut html_output, page.to_vec().into_iter());
-
-                let mut context = Context::new();
-                context.insert("index", &index);
-                context.insert("content", &html_output);
-                context.insert("num_of_slides", &num_of_slides);
-
-                let slide_html = tera.render("slide.html", &context).unwrap();
-
-                let mut file = File::create(format!("./build/{}.html", index))?;
-                file.write_all(&slide_html.bytes().collect::<Vec<u8>>())?;
-            }
-
-            println!("Slides created!");
-
+            println!("Must use serve or build command. Run with --help to learn more");
             Ok(())
         }
     }
