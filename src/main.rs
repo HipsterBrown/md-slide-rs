@@ -5,6 +5,7 @@ use std::path::{Component, Path, PathBuf};
 use structopt::StructOpt;
 use tera::{Context, Tera};
 use async_std::task;
+use tide::http::{headers, StatusCode};
 
 #[derive(Clone)]
 struct StaticFile {
@@ -144,13 +145,13 @@ fn get_path(root: &Path, file_path: &str) -> PathBuf {
 async fn serve_static_files(request: tide::Request<StaticFile>) -> tide::Result {
     let actual_path: String = request.param("path").unwrap();
     let state = request.state();
-    let response = task::block_on(async move {
+    task::block_on(async move {
         let path = get_path(&state.root, &actual_path);
         let meta = async_std::fs::metadata(&path).await.ok();
 
         // If the file doesn't exist, then bail out.
         if meta.is_none() {
-            return Ok(tide::Response::new(404)
+            return Ok(tide::Response::new(StatusCode::NotFound)
                 .set_mime(mime::TEXT_HTML)
                 .body_string(format!("Couldn't locate requested file {:?}", actual_path)));
         }
@@ -160,9 +161,8 @@ async fn serve_static_files(request: tide::Request<StaticFile>) -> tide::Result 
         let mime = mime_guess::from_path(&path).first_or_octet_stream();
         let file = async_std::fs::File::open(PathBuf::from(&path)).await.unwrap();
         let reader = async_std::io::BufReader::new(file);
-        Ok(tide::Response::new(200).body(reader).set_header("Content-Length", size).set_mime(mime))
-    });
-    response
+        Ok(tide::Response::new(StatusCode::Ok).body(reader).set_header(headers::CONTENT_LENGTH, size).set_mime(mime))
+    })
 }
 
 fn main() -> Result<(), std::io::Error> {
@@ -175,8 +175,7 @@ fn main() -> Result<(), std::io::Error> {
             };
             task::block_on(async {
                 let mut server = tide::with_state(StaticFile { root: root_dir });
-                server.at("/*path").get(|request| async { serve_static_files(request).await.unwrap() });
-
+                server.at("/*path").get(|request| async { serve_static_files(request).await });
                 println!("Serving presenation slides at 0.0.0.0:8080/0.html");
                 server.listen("0.0.0.0:8080").await?;
                 Ok(())

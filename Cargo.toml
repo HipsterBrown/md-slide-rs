@@ -10,7 +10,7 @@ license = "Apache-2.0"
 [dependencies]
 structopt = "0.3"
 pulldown-cmark = "0.7"
-tide = "0.6"
+tide = "0.8"
 async-std = "1"
 percent-encoding = "2.1"
 mime = "0.3"
